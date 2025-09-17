@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Quiz App - Admin</title>
+
+  <!-- font + css -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>Create Quiz</h1>
+        <div class="hint">Set an overall time (minutes) and add questions</div>
+      </div>
+      <div class="sub hint">Admin panel</div>
+    </div>
+
+    <div class="form">
+      <div class="field">
+        <input id="quizTitle" type="text" placeholder="Quiz title (e.g. Science Quiz)"/>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col field">
+          <input id="quizTimer" type="number" placeholder="Time (minutes)" />
+        </div>
+        <div class="col field" style="max-width:170px;">
+          <button id="createQuizBtn" class="btn">Create</button>
+        </div>
+      </div>
+
+      <p id="quizCode" class="hint"></p>
+
+      <!-- Admin timer controls -->
+      <div id="adminControls" style="display:none; margin-top:10px;">
+        <div class="row" style="align-items:center; gap:10px;">
+          <div id="adminTimerDisplay" class="code">Time left: --:--</div>
+          <button id="startTimerBtn" class="btn secondary">Start Timer</button>
+          <button id="plus20Btn" class="btn">+20s</button>
+          <button id="minus20Btn" class="btn">-20s</button>
+        </div>
+        <div class="hint" style="margin-top:8px;">Use start to show questions to participants. Adjust modifies remaining time.</div>
+      </div>
+
+      <div id="questionForm" style="display:none; margin-top:14px;">
+        <div class="card">
+          <div class="field">
+            <input id="questionText" type="text" placeholder="Question text" />
+          </div>
+
+          <div class="row">
+            <div class="col field"><input id="option1" type="text" placeholder="Option 1" /></div>
+            <div class="col field"><input id="option2" type="text" placeholder="Option 2" /></div>
+          </div>
+          <div class="row">
+            <div class="col field"><input id="option3" type="text" placeholder="Option 3 (optional)" /></div>
+            <div class="col field"><input id="option4" type="text" placeholder="Option 4 (optional)" /></div>
+          </div>
+
+          <div class="field">
+            <input id="answer" type="text" placeholder="Correct answer (must match an option)" />
+          </div>
+
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button id="addQuestionBtn" class="btn">Add Question</button>
+            <div id="questionStatus" class="hint"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

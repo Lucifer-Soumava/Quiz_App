@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Quiz App - Results</title>
+
+  <!-- font + css -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>Results</h1>
+        <div class="hint">Your score and leaderboard</div>
+      </div>
+      <div class="sub hint">Summary</div>
+    </div>
+
+    <div class="form">
+      <div id="yourScore" class="card" style="text-align:center;"></div>
+      <div id="leaderboard" class="card" style="margin-top:12px;"></div>
+
+      <div style="margin-top:12px; display:flex; gap:10px; justify-content:center;">
+        <a href="play.html" class="btn secondary" style="text-decoration:none;">Play another</a>
+        <a href="index.html" class="btn" style="text-decoration:none;">Home</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    // Show player's score from localStorage (submitAnswers stores these)
+    document.addEventListener("DOMContentLoaded", () => {
+      const score = localStorage.getItem("lastScore");
+      const name = localStorage.getItem("lastPlayer");
+      const quizId = localStorage.getItem("lastQuizId");
+
+      const yourScoreEl = document.getElementById("yourScore");
+      if (score && name) {
+        yourScoreEl.innerHTML = `<h2>${name}, your score: ${score}</h2>`;
+      } else {
+        yourScoreEl.innerHTML = `<h2>No score found. Play a quiz first!</h2>`;
+      }
+
+      if (quizId) {
+        // set currentQuizId so app.js loadLeaderboard can use it
+        currentQuizId = quizId;
+        loadLeaderboard();
+      }
+    });
+  </script>
+</body>
+</html>

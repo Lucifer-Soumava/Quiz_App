@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Quiz App - Home</title>
+
+  <!-- font + css -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- ensure this file is in the same folder as index.html -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>Welcome to Quiz App</h1>
+        <div class="hint">Create quizzes or join with a Quiz ID</div>
+      </div>
+      <div class="sub hint">Quick start</div>
+    </div>
+
+    <div class="form">
+      <div class="card">
+        <h2 style="margin-bottom:12px;">Join a Quiz</h2>
+        <div class="field">
+          <input id="quizIdInput_home" type="text" placeholder="Quiz ID (e.g. 1a2b3c)"/>
+        </div>
+        <div class="field">
+          <input id="playerName_home" type="text" placeholder="Your name"/>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <a id="joinLink" href="play.html" class="btn" style="text-decoration:none;">Go to Play</a>
+          <a href="admin.html" class="btn secondary" style="text-decoration:none;">Create Quiz</a>
+        </div>
+        <div class="hint" style="margin-top:12px;">Tip: Click Admin to create a quiz, then share the Quiz ID with participants.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Prefill helper (optional)
+    document.addEventListener("DOMContentLoaded", () => {
+      const joinLink = document.getElementById("joinLink");
+      const idInput = document.getElementById("quizIdInput_home");
+      const nameInput = document.getElementById("playerName_home");
+      joinLink.addEventListener("click", (e) => {
+        const id = idInput.value.trim();
+        const name = nameInput.value.trim();
+        if (!id || !name) return;
+        localStorage.setItem("prefill_quizId", id);
+        localStorage.setItem("prefill_name", name);
+      });
+    });
+  </script>
+
+  <script src="app.js"></script>
+</body>
+</html>
