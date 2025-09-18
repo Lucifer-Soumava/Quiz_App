@@ -86,6 +86,25 @@
           </div>
         </div>
       </div>
+
+      <!-- ADMIN RESULTS PANEL -->
+      <div id="adminResultsPanel" style="display:none; margin-top:14px;">
+        <div class="card">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <h3 style="margin:0;">Results</h3>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input id="resultsSearch" type="text" placeholder="Search by name..." style="min-width:220px; padding:8px 10px; border-radius:8px; border:1px solid rgba(15,23,42,0.06);" />
+              <button id="refreshResultsBtn" class="btn secondary" style="padding:8px 10px;">Refresh</button>
+            </div>
+          </div>
+
+          <div id="resultsList" style="margin-top:12px;">
+            <!-- individual results rows will be inserted here -->
+            <div class="hint">No results yet.</div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div>

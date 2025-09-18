@@ -1,4 +1,4 @@
-// app.js (complete - updated)
+// app.js (complete - updated for time_taken + leaderboard display inline)
 // ====================
 // CONFIG / GLOBALS
 // ====================
@@ -13,6 +13,10 @@ let participantPollInterval = null;
 let timerInterval = null;
 let timeLeft = 0;
 let questionsRendered = false; // guard to avoid re-rendering questions repeatedly
+
+// New helper vars for measuring time taken
+let quizConfiguredDuration = null; // configured duration (seconds) read before start
+let quizStartTimestamp = null;     // Date.now() ms at computed start time
 
 // ====================
 // EVENT BINDING
@@ -196,6 +200,10 @@ async function resetTimerForQuiz(quizId) {
     if (qForm) qForm.style.display = "block";
     // Reset participant-render guard so next start re-renders for participants
     questionsRendered = false;
+
+    // Clear local participant timing info in case participants were active
+    quizConfiguredDuration = null;
+    quizStartTimestamp = null;
   } catch (err) {
     console.error(err);
     alert("Error resetting quiz.");
@@ -219,7 +227,8 @@ function startAdminStatusPoll(quizId) {
       updateAdminTimerDisplay(data.time_left, data.started);
       // also allow admin to see questions when started
       if (data.started) {
-        document.getElementById("questionForm").style.display = "block";
+        const qForm = document.getElementById("questionForm");
+        if (qForm) qForm.style.display = "block";
       }
     } catch (err) {
       console.error("admin poll error", err);
@@ -267,6 +276,8 @@ async function joinQuiz() {
       // show waiting UI and poll until started
       document.getElementById("quizContainer").innerHTML = `<div class="card"><p class="hint">Waiting for the admin to start the quiz...</p></div>`;
       document.getElementById("timerDisplay").innerText = "";
+      // store configured duration so we can compute elapsed once it starts
+      quizConfiguredDuration = data.time_left;
       startParticipantPollForStart(currentQuizId);
       return;
     }
@@ -295,6 +306,8 @@ function startParticipantPollForStart(quizId) {
       // If not started, show waiting and display configured duration
       if (!data.started) {
         const preTime = data.time_left;
+        // update configured duration (in case admin changed it before starting)
+        quizConfiguredDuration = preTime;
         const mins = Math.floor(preTime / 60);
         const secs = preTime % 60;
         const el = document.getElementById("timerDisplay");
@@ -368,6 +381,10 @@ function startParticipantRunningPoll(quizId) {
           const secs = timeLeft % 60;
           el.innerText = `Quiz will start when admin clicks start. Duration: ${mins}m ${secs}s`;
         }
+
+        // clear local timing info
+        quizConfiguredDuration = null;
+        quizStartTimestamp = null;
 
         return;
       }
@@ -468,16 +485,20 @@ async function submitAnswers() {
     if (sel !== null && parseInt(sel) === q.answer) score++;
   });
 
+  // compute timeTaken in seconds (robust)
+  const timeTaken = computeTimeTaken();
+
   try {
     await fetch(`${API_BASE}/score/${currentQuizId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: playerName, score })
+      body: JSON.stringify({ name: playerName, score, time_taken: timeTaken })
     });
 
     localStorage.setItem("lastScore", score);
     localStorage.setItem("lastPlayer", playerName);
     localStorage.setItem("lastQuizId", currentQuizId);
+    localStorage.setItem("lastTimeTaken", timeTaken);
 
     // show animated completion modal (then redirect to results)
     showCompletionModal(currentQuizTitle || "Quiz");
@@ -485,6 +506,19 @@ async function submitAnswers() {
     console.error(err);
     alert("Error submitting score.");
   }
+}
+
+// compute time taken in seconds
+function computeTimeTaken() {
+  // Prefer timestamp-based measure if available
+  if (typeof quizStartTimestamp === "number") {
+    return Math.max(0, Math.floor((Date.now() - quizStartTimestamp) / 1000));
+  }
+  // Fallback: use configured duration minus current timeLeft
+  if (typeof quizConfiguredDuration === "number" && typeof timeLeft === "number") {
+    return Math.max(0, quizConfiguredDuration - timeLeft);
+  }
+  return 0;
 }
 
 // ====================
@@ -496,6 +530,19 @@ function syncAndStartTimer(serverSeconds) {
 
   // set authoritative timeLeft from server
   timeLeft = Math.max(0, parseInt(serverSeconds || 0));
+
+  // Establish quizStartTimestamp if not present.
+  // If we previously recorded quizConfiguredDuration (pre-start), compute
+  // approximate start timestamp so computeTimeTaken() yields correct elapsed time.
+  if (!quizStartTimestamp) {
+    if (typeof quizConfiguredDuration === "number") {
+      const elapsed = Math.max(0, quizConfiguredDuration - timeLeft);
+      quizStartTimestamp = Date.now() - elapsed * 1000;
+    } else {
+      // we didn't observe pre-start; fallback to marking now
+      quizStartTimestamp = Date.now();
+    }
+  }
 
   // start countdown tick that relies on local timeLeft
   const display = document.getElementById("timerDisplay");
@@ -555,6 +602,10 @@ function syncAndStartTimer(serverSeconds) {
             display.innerText = `Quiz will start when admin clicks start. Duration: ${mins}m ${secs}s`;
           }
 
+          // clear local timing info
+          quizConfiguredDuration = null;
+          quizStartTimestamp = null;
+
           return;
         }
 
@@ -598,11 +649,15 @@ async function loadLeaderboard() {
     const list = document.createElement("ul");
     list.className = "leaderboard-list";
 
+    const lastPlayerName = localStorage.getItem("lastPlayer");
+    const lastTimeTakenLocal = localStorage.getItem("lastTimeTaken");
+
     data.forEach((entry, i) => {
       const li = document.createElement("li");
       li.className = "leaderboard-item";
-      if (entry.name === (localStorage.getItem("lastPlayer") || playerName)) li.classList.add("me");
+      if (entry.name === (lastPlayerName || playerName)) li.classList.add("me");
 
+      // Left: rank + name
       const left = document.createElement("div");
       left.style.display = "flex";
       left.style.alignItems = "center";
@@ -623,12 +678,30 @@ async function loadLeaderboard() {
       left.appendChild(rank);
       left.appendChild(nameSpan);
 
+      // Right: show score and time inline (score first, then time)
+      const right = document.createElement("div");
+      right.className = "lb-meta"; // css will keep them inline and responsive
+
       const scoreSpan = document.createElement("div");
       scoreSpan.className = "lb-score";
-      scoreSpan.innerText = entry.score;
+      scoreSpan.innerText = `${entry.score} pts`;
+
+      const timeSpan = document.createElement("div");
+      timeSpan.className = "lb-time";
+
+      // prefer server-provided time_taken (snake_case or camelCase), fallback to local storage for the just-submitted player
+      const t = (entry.time_taken !== undefined) ? entry.time_taken
+                : (entry.timeTaken !== undefined) ? entry.timeTaken
+                : (entry.name === lastPlayerName && lastTimeTakenLocal !== null) ? parseInt(lastTimeTakenLocal, 10)
+                : undefined;
+
+      timeSpan.innerText = (t !== undefined) ? formatTime(t) : "";
+
+      right.appendChild(scoreSpan);
+      right.appendChild(timeSpan);
 
       li.appendChild(left);
-      li.appendChild(scoreSpan);
+      li.appendChild(right);
       list.appendChild(li);
     });
 
@@ -639,6 +712,13 @@ async function loadLeaderboard() {
     console.error(err);
     container.innerHTML = "<div class='card'><p class='hint'>No leaderboard yet.</p></div>";
   }
+}
+
+function formatTime(seconds) {
+  if (seconds === undefined || seconds === null) return "";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m ${s}s`;
 }
 
 /* -----------------------------

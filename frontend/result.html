@@ -37,10 +37,19 @@
       const score = localStorage.getItem("lastScore");
       const name = localStorage.getItem("lastPlayer");
       const quizId = localStorage.getItem("lastQuizId");
+      const timeTaken = localStorage.getItem("lastTimeTaken");
 
       const yourScoreEl = document.getElementById("yourScore");
       if (score && name) {
-        yourScoreEl.innerHTML = `<h2>${name}, your score: ${score}</h2>`;
+        let timeText = "";
+        if (timeTaken !== null && timeTaken !== undefined) {
+          const s = parseInt(timeTaken, 10);
+          const m = Math.floor(s / 60);
+          const sec = s % 60;
+          // Show time inline next to points
+          timeText = ` <span class="lb-time" style="font-weight:600; margin-left:10px;">• ${m}m ${sec}s</span>`;
+        }
+        yourScoreEl.innerHTML = `<h2 style="margin:0;">${name}, your score: <span style="font-weight:800;">${score} pts</span>${timeText}</h2>`;
       } else {
         yourScoreEl.innerHTML = `<h2>No score found. Play a quiz first!</h2>`;
       }

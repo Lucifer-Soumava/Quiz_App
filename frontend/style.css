@@ -1,6 +1,5 @@
 /* ============================
    Clean Modern Stylesheet
-   - Make sure HTML wraps content in <div class="container">...</div>
    - Works for admin.html / play.html / result.html
    ============================ */
 
@@ -201,7 +200,6 @@ input:focus, textarea:focus, select:focus {
 }
 /* ============================
   Styled Question Cards & Leaderboard
-   - Paste this near bottom of style.css
    - Uses existing container/card styles
    ============================ */
 
@@ -326,6 +324,23 @@ input:focus, textarea:focus, select:focus {
 /* name & score */
 .lb-name { font-weight:600; color:#0b1220; }
 .lb-score { color:#475569; font-weight:700; }
+
+/* time taken display */
+.lb-time {
+  font-size: 13px;
+  color: #64748b;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+/* combined meta wrapper (score + time) */
+.lb-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 86px;
+  justify-content: flex-end;
+}
 
 /* highlight current player */
 .leaderboard-item.me {
@@ -518,4 +533,94 @@ input:focus, textarea:focus, select:focus {
 .timer-btn.reset {
   background: linear-gradient(180deg, #e5e7eb 0%, #d1d5db 100%); /* light gray */
   color: #0f172a;
+}
+
+/* Mobile: stack name and score/time vertically for leaderboard */
+@media (max-width: 500px) {
+  .leaderboard-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .leaderboard-item > div:last-child {
+    width: 100%;
+    text-align: left;
+    margin-top: 6px;
+  }
+}
+/* combined meta wrapper (score + time) */
+.lb-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 110px;
+  justify-content: flex-end;
+  white-space: nowrap; /* keep score and time together on one line where possible */
+}
+
+/* score */
+.lb-score {
+  color: #1f2937;
+  font-weight: 700;
+}
+
+/* time taken display: small, muted and inline */
+.lb-time {
+  font-size: 13px;
+  color: #64748b;
+  margin-left: 6px;
+}
+
+/* Mobile: stack name and score/time vertically for leaderboard */
+@media (max-width: 500px) {
+  .leaderboard-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .leaderboard-item > .lb-meta,
+  .leaderboard-item > div:last-child {
+    width: 100%;
+    text-align: left;
+    justify-content: flex-start;
+    margin-top: 4px;
+  }
+}
+/* Admin Results panel */
+#adminResultsPanel .card { padding: 14px; }
+
+/* Results list row */
+.admin-result-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px;
+  border-radius:10px;
+  margin-bottom:8px;
+  background:linear-gradient(180deg,#ffffff,#fbfdff);
+  border:1px solid rgba(15,23,42,0.03);
+}
+
+/* left (name) and right (points + time) */
+.admin-result-left { font-weight:600; color:#0b1220; }
+.admin-result-right { display:flex; align-items:center; gap:12px; }
+
+/* points/time micro-styling */
+.admin-result-pts { font-weight:700; color:#1f2937; }
+.admin-result-time { color:#64748b; font-size:13px; white-space:nowrap; }
+
+/* Search input responsive fix */
+#resultsSearch { min-width:180px; }
+
+/* mobile stacking */
+@media (max-width:520px) {
+  .admin-result-row {
+    flex-direction: column;
+    align-items:flex-start;
+  }
+  .admin-result-right {
+    width:100%;
+    justify-content:flex-start;
+    margin-top:6px;
+  }
 }
