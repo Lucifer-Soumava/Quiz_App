@@ -180,3 +180,20 @@ def get_leaderboard(quiz_id: str):
     if quiz_id not in leaderboards:
         raise HTTPException(status_code=404, detail="Quiz not found")
     return leaderboards[quiz_id]
+
+@app.post("/quizzes/{quiz_id}/reset")
+def reset_quiz_timer(quiz_id: str):
+    """
+    Admin resets the quiz timer/state:
+    - clears started_at (so participants no longer see questions)
+    - clears adjustment (so remaining time equals base timer)
+    Returns current time_left (based on base timer).
+    """
+    if quiz_id not in quizzes:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    quiz = quizzes[quiz_id]
+    # Reset running state & adjustments, keep base timer and questions
+    quiz["started_at"] = None
+    quiz["adjustment"] = 0
+    time_left = compute_time_left(quiz)
+    return {"message": "reset", "time_left": time_left}

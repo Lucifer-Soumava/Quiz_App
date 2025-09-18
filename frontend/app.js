@@ -1,5 +1,6 @@
+// app.js (complete - updated)
 // ====================
-// CONFIG
+// CONFIG / GLOBALS
 // ====================
 const API_BASE = "http://127.0.0.1:8000";
 let currentQuizId = null;
@@ -11,8 +12,7 @@ let adminStatusInterval = null;
 let participantPollInterval = null;
 let timerInterval = null;
 let timeLeft = 0;
-let questionsRendered = false;
-
+let questionsRendered = false; // guard to avoid re-rendering questions repeatedly
 
 // ====================
 // EVENT BINDING
@@ -33,6 +33,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const minus20Btn = document.getElementById("minus20Btn");
   if (minus20Btn) minus20Btn.addEventListener("click", () => adjustTimerForQuiz(currentQuizId, -20));
+
+  const resetBtn = document.getElementById("resetTimerBtn");
+  if (resetBtn) resetBtn.addEventListener("click", () => resetTimerForQuiz(currentQuizId));
 
   // Play page
   const joinBtn = document.getElementById("joinQuizBtn");
@@ -86,9 +89,12 @@ async function createQuiz() {
     const data = await res.json();
     currentQuizId = data.quiz_id;
     currentQuizTitle = title;
-    document.getElementById("quizCode").innerText = "Quiz ID: " + currentQuizId;
-    document.getElementById("questionForm").style.display = "block";
-    document.getElementById("adminControls").style.display = "flex";
+    const codeEl = document.getElementById("quizCode");
+    if (codeEl) codeEl.innerText = "Quiz ID: " + currentQuizId;
+    const qForm = document.getElementById("questionForm");
+    if (qForm) qForm.style.display = "block";
+    const adminControls = document.getElementById("adminControls");
+    if (adminControls) adminControls.style.display = "flex";
     // start polling admin status to show time left
     startAdminStatusPoll(currentQuizId);
   } catch (err) {
@@ -127,7 +133,8 @@ async function addQuestion() {
     });
 
     if (!res.ok) throw new Error("Failed to add question");
-    document.getElementById("questionStatus").innerText = "✅ Question added!";
+    const statusEl = document.getElementById("questionStatus");
+    if (statusEl) statusEl.innerText = "✅ Question added!";
     // clear inputs
     ["questionText","option1","option2","option3","option4","answer"].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = "";
@@ -145,7 +152,7 @@ async function startTimerForQuiz(quizId) {
     const res = await fetch(`${API_BASE}/quizzes/${quizId}/start`, { method: "POST" });
     if (!res.ok) throw new Error("Failed to start");
     const data = await res.json();
-    updateAdminTimerDisplay(data.time_left);
+    updateAdminTimerDisplay(data.time_left, true);
   } catch (err) {
     console.error(err);
     alert("Error starting quiz timer.");
@@ -163,10 +170,40 @@ async function adjustTimerForQuiz(quizId, deltaSeconds) {
     });
     if (!res.ok) throw new Error("Adjust failed");
     const data = await res.json();
-    updateAdminTimerDisplay(data.time_left);
+    updateAdminTimerDisplay(data.time_left, true);
   } catch (err) {
     console.error(err);
     alert("Error adjusting timer.");
+  }
+}
+
+// Reset quiz: stop it and clear adjustments
+async function resetTimerForQuiz(quizId) {
+  if (!quizId) { alert("Quiz not created yet"); return; }
+  const btn = document.getElementById("resetTimerBtn");
+  if (btn) {
+    btn.setAttribute("disabled", "true");
+    btn.classList.add("disabled");
+  }
+  try {
+    const res = await fetch(`${API_BASE}/quizzes/${quizId}/reset`, { method: "POST" });
+    if (!res.ok) throw new Error("Reset failed");
+    const data = await res.json();
+    // update admin display (not started)
+    updateAdminTimerDisplay(data.time_left, false);
+    // Keep question editing available for admin (questions remain)
+    const qForm = document.getElementById("questionForm");
+    if (qForm) qForm.style.display = "block";
+    // Reset participant-render guard so next start re-renders for participants
+    questionsRendered = false;
+  } catch (err) {
+    console.error(err);
+    alert("Error resetting quiz.");
+  } finally {
+    if (btn) {
+      btn.removeAttribute("disabled");
+      btn.classList.remove("disabled");
+    }
   }
 }
 
@@ -198,7 +235,8 @@ function updateAdminTimerDisplay(time_left_seconds, started = false) {
   const mins = Math.floor(time_left_seconds / 60);
   const secs = time_left_seconds % 60;
   el.innerText = `Time left: ${mins}:${secs < 10 ? "0" : ""}${secs}` + (started ? " (running)" : " (not started)");
-  document.getElementById("adminControls").style.display = "flex";
+  const adminControls = document.getElementById("adminControls");
+  if (adminControls) adminControls.style.display = "flex";
 }
 
 // ====================
@@ -213,12 +251,13 @@ async function joinQuiz() {
     return;
   }
 
-  // reset state for a fresh join
+  // clear any previous answers map
   window.userAnswers = {};
   questions = [];
   questionsRendered = false;
 
   try {
+    // call status endpoint (participant view)
     const res = await fetch(`${API_BASE}/quizzes/${currentQuizId}/status`);
     if (!res.ok) throw new Error("Quiz not found");
     const data = await res.json();
@@ -232,8 +271,8 @@ async function joinQuiz() {
       return;
     }
 
-    // If already started, load questions + start authoritative timer
-    questions = data.questions || [];
+    // if started, load questions + start timer
+    questions = data.questions;
     renderQuestions();
     syncAndStartTimer(data.time_left);
   } catch (err) {
@@ -244,6 +283,7 @@ async function joinQuiz() {
 
 // Poll until admin starts the quiz, then load questions and timer
 function startParticipantPollForStart(quizId) {
+  // Poll the status every 1.5s until started, then continue with a running-only poll that won't re-render questions
   clearInterval(participantPollInterval);
 
   async function preStartPoll() {
@@ -271,7 +311,7 @@ function startParticipantPollForStart(quizId) {
         renderQuestions();
       }
 
-      // sync timeLeft to server and start authoritative countdown
+      // sync timeLeft to server value and start local countdown
       syncAndStartTimer(data.time_left);
 
       // move to running-only poll that will NOT re-render questions
@@ -287,12 +327,75 @@ function startParticipantPollForStart(quizId) {
   participantPollInterval = setInterval(preStartPoll, 1500);
 }
 
+// Running poll (quiz started): only resync time (don't re-render) but handle reset
+function startParticipantRunningPoll(quizId) {
+  // clear any existing running poll
+  clearInterval(participantPollInterval);
+
+  async function runningPoll() {
+    try {
+      const res = await fetch(`${API_BASE}/quizzes/${quizId}/status`);
+      if (!res.ok) return;
+      const data = await res.json();
+
+      // If the quiz was reset / ended on the server, restore participant to waiting state
+      if (!data.started) {
+        // stop running poll
+        clearInterval(participantPollInterval);
+        participantPollInterval = null;
+
+        // stop countdown timer if running
+        if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+
+        // clear local timeLeft and set to server-provided base value
+        timeLeft = parseInt(data.time_left || 0);
+
+        // clear questions and flip rendered flag so we don't keep showing them
+        questions = [];
+        questionsRendered = false;
+
+        // hide submit button and show waiting UI
+        const submitBtn = document.getElementById("submitAnswersBtn");
+        if (submitBtn) submitBtn.style.display = "none";
+
+        const container = document.getElementById("quizContainer");
+        if (container) container.innerHTML = `<div class="card"><p class="hint">Waiting for the admin to start the quiz...</p></div>`;
+
+        // show the configured duration to participants
+        const el = document.getElementById("timerDisplay");
+        if (el) {
+          const mins = Math.floor(timeLeft / 60);
+          const secs = timeLeft % 60;
+          el.innerText = `Quiz will start when admin clicks start. Duration: ${mins}m ${secs}s`;
+        }
+
+        return;
+      }
+
+      // If still started, resync time (authoritative)
+      const serverLeft = parseInt(data.time_left || 0);
+      if (typeof timeLeft !== "number") timeLeft = serverLeft;
+      if (Math.abs(serverLeft - timeLeft) > 1) {
+        timeLeft = serverLeft;
+      }
+
+      // NOTE: do not re-render questions here (would wipe user selections)
+    } catch (err) {
+      console.error("participant running poll error:", err);
+    }
+  }
+
+  // run immediately then at interval
+  runningPoll();
+  participantPollInterval = setInterval(runningPoll, 1500);
+}
 
 // ====================
 // QUESTION RENDER + SUBMIT
 // ====================
 function renderQuestions() {
   const container = document.getElementById("quizContainer");
+  if (!container) return;
   container.innerHTML = "";
   if (!questions || !questions.length) {
     container.innerHTML = '<div class="card"><p class="hint">No questions yet.</p></div>';
@@ -385,29 +488,90 @@ async function submitAnswers() {
 }
 
 // ====================
-// TIMER (participant visible)
+// TIMER (participant visible) - authoritative sync
 // ====================
-function startQuizTimer(seconds) {
-  // clear previous
+function syncAndStartTimer(serverSeconds) {
+  // clear any existing local timer
   clearInterval(timerInterval);
-  let timeLeft = seconds;
-  const display = document.getElementById("timerDisplay");
-  if (!display) return;
 
+  // set authoritative timeLeft from server
+  timeLeft = Math.max(0, parseInt(serverSeconds || 0));
+
+  // start countdown tick that relies on local timeLeft
+  const display = document.getElementById("timerDisplay");
   function tick() {
     const mins = Math.floor(timeLeft / 60);
     const secs = timeLeft % 60;
-    display.innerText = `Time Left: ${mins}:${secs < 10 ? "0" : ""}${secs}`;
+    if (display) display.innerText = `Time Left: ${mins}:${secs < 10 ? "0" : ""}${secs}`;
     if (timeLeft <= 0) {
       clearInterval(timerInterval);
+      // stop polling too because quiz ended
+      if (participantPollInterval) { clearInterval(participantPollInterval); participantPollInterval = null; }
+      // auto-submit
       alert("Time's up! Submitting answers...");
       submitAnswers();
+      return;
     }
     timeLeft--;
   }
-
   tick();
   timerInterval = setInterval(tick, 1000);
+
+  // ensure participant keeps polling server for resync/adjusts every 1.5s
+  // If a poll is already set (e.g. from pre-start), keep it; otherwise create one.
+    if (!participantPollInterval) {
+    async function runningPoll() {
+      try {
+        const res = await fetch(`${API_BASE}/quizzes/${currentQuizId}/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // If admin reset the quiz while participant timer was active:
+        if (!data.started) {
+          // stop the local countdown
+          if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+
+          // stop polling
+          if (participantPollInterval) { clearInterval(participantPollInterval); participantPollInterval = null; }
+
+          // reset rendered state and clear questions
+          questions = [];
+          questionsRendered = false;
+
+          // hide submit button
+          const submitBtn = document.getElementById("submitAnswersBtn");
+          if (submitBtn) submitBtn.style.display = "none";
+
+          // show waiting UI and configured duration from server
+          const container = document.getElementById("quizContainer");
+          if (container) container.innerHTML = `<div class="card"><p class="hint">Waiting for the admin to start the quiz...</p></div>`;
+
+          const serverLeft = parseInt(data.time_left || 0);
+          timeLeft = serverLeft;
+          const display = document.getElementById("timerDisplay");
+          if (display) {
+            const mins = Math.floor(timeLeft / 60);
+            const secs = timeLeft % 60;
+            display.innerText = `Quiz will start when admin clicks start. Duration: ${mins}m ${secs}s`;
+          }
+
+          return;
+        }
+
+        // server's time_left is authoritative; resync if difference > 1 second
+        const serverLeft = parseInt(data.time_left || 0);
+        if (Math.abs(serverLeft - timeLeft) > 1) {
+          // resync local to server value
+          timeLeft = serverLeft;
+        }
+      } catch (err) {
+        console.error("participant running poll error:", err);
+      }
+    }
+    // initial poll + interval
+    runningPoll();
+    participantPollInterval = setInterval(runningPoll, 1500);
+  }
 }
 
 // ====================
@@ -547,103 +711,10 @@ function showCompletionModal(quizTitle) {
     }, 380);
   }, 2400);
 }
-function syncAndStartTimer(serverSeconds) {
-  // clear any existing local timer
-  clearInterval(timerInterval);
-
-  // set authoritative timeLeft from server
-  timeLeft = Math.max(0, parseInt(serverSeconds || 0));
-
-  // start countdown tick that relies on local timeLeft
-  const display = document.getElementById("timerDisplay");
-  function tick() {
-    const mins = Math.floor(timeLeft / 60);
-    const secs = timeLeft % 60;
-    if (display) display.innerText = `Time Left: ${mins}:${secs < 10 ? "0" : ""}${secs}`;
-    if (timeLeft <= 0) {
-      clearInterval(timerInterval);
-      // stop polling too because quiz ended
-      if (participantPollInterval) { clearInterval(participantPollInterval); participantPollInterval = null; }
-      // auto-submit
-      alert("Time's up! Submitting answers...");
-      submitAnswers();
-      return;
-    }
-    timeLeft--;
-  }
-  tick();
-  timerInterval = setInterval(tick, 1000);
-
-  // ensure participant keeps polling server for resync/adjusts every 1.5s
-  // If a poll is already set (e.g. from pre-start), keep it; otherwise create one.
-  if (!participantPollInterval) {
-    async function runningPoll() {
-      try {
-        const res = await fetch(`${API_BASE}/quizzes/${currentQuizId}/status`);
-        if (!res.ok) return;
-        const data = await res.json();
-        // server's time_left is authoritative; resync if difference > 1 second
-        const serverLeft = parseInt(data.time_left || 0);
-        if (Math.abs(serverLeft - timeLeft) > 1) {
-          // resync local to server value
-          timeLeft = serverLeft;
-        }
-      } catch (err) {
-        console.error("participant running poll error:", err);
-      }
-    }
-    // initial poll + interval
-    runningPoll();
-    participantPollInterval = setInterval(runningPoll, 1500);
-  }
-}
-
-// ---------- Also update startQuizTimer usage: replace any earlier startQuizTimer with call to syncAndStartTimer
-// Example: where you previously had `startQuizTimer(data.time_left)`, change to:
- // syncAndStartTimer(data.time_left);
 
 // ---------- Clean-up helper (call where appropriate, e.g. on page unload) ----------
 window.addEventListener("beforeunload", () => {
   clearInterval(participantPollInterval);
   clearInterval(timerInterval);
+  clearInterval(adminStatusInterval);
 });
-
-function startParticipantRunningPoll(quizId) {
-  // ensure previous interval is cleared
-  clearInterval(participantPollInterval);
-
-  async function runningPoll() {
-    try {
-      const res = await fetch(`${API_BASE}/quizzes/${quizId}/status`);
-      if (!res.ok) return;
-      const data = await res.json();
-
-      // If the quiz somehow ends or server says not started, stop polling and show a message
-      if (!data.started) {
-        clearInterval(participantPollInterval);
-        participantPollInterval = null;
-        const el = document.getElementById("timerDisplay");
-        if (el) el.innerText = "Quiz ended.";
-        return;
-      }
-
-      // server's time_left is authoritative; resync if difference > 1 second
-      const serverLeft = parseInt(data.time_left || 0);
-      if (typeof timeLeft !== "number") timeLeft = serverLeft;
-      if (Math.abs(serverLeft - timeLeft) > 1) {
-        timeLeft = serverLeft;
-      }
-
-      // Optional: if server adds new questions mid-run (rare) you could handle it here
-      // but don't re-render as it will wipe selections. If you need dynamic question additions,
-      // implement a minimal DOM patcher instead of full re-rendering.
-
-      // If time runs out server-side, the syncAndStartTimer logic will auto-submit.
-    } catch (err) {
-      console.error("participant running poll error:", err);
-    }
-  }
-
-  runningPoll();
-  participantPollInterval = setInterval(runningPoll, 1500);
-}

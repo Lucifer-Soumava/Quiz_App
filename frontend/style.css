@@ -441,3 +441,81 @@ input:focus, textarea:focus, select:focus {
   opacity: 0;
   transition: opacity .28s ease;
 }
+/* ---------- Admin timer buttons (shared, modern look) ---------- */
+.admin-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+/* Timer buttons — shared look */
+.timer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(15,23,42,0.06);
+  transition: transform 160ms cubic-bezier(.2,.9,.2,1), box-shadow 160ms, opacity 120ms;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Primary: Start */
+#startTimerBtn.timer-btn,
+.timer-btn.start {
+  background: linear-gradient(180deg, #34d399 0%, #10b981 100%);
+  color: white;
+}
+
+/* Positive adjust */
+#plus20Btn.timer-btn,
+.timer-btn.plus {
+  background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+  color: white;
+}
+
+/* Negative adjust */
+#minus20Btn.timer-btn,
+.timer-btn.minus {
+  background: linear-gradient(180deg, #fb923c 0%, #f97316 100%);
+  color: white;
+}
+
+/* Subtle outline for the time display */
+#adminTimerDisplay.code {
+  background: rgba(15,23,42,0.03);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+/* Hover / focus / active */
+.timer-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(15,23,42,0.12); }
+.timer-btn:active { transform: translateY(0) scale(0.99); box-shadow: 0 6px 18px rgba(15,23,42,0.08); }
+.timer-btn:focus { outline: 3px solid rgba(59,130,246,0.14); outline-offset: 2px; }
+
+/* Disabled state */
+.timer-btn[disabled],
+.timer-btn.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* small SVG sizing inside buttons */
+.timer-btn svg { width: 16px; height: 16px; flex: 0 0 16px; display: inline-block; vertical-align: middle; }
+/* Neutral reset */
+#resetTimerBtn.timer-btn,
+.timer-btn.reset {
+  background: linear-gradient(180deg, #e5e7eb 0%, #d1d5db 100%); /* light gray */
+  color: #0f172a;
+}

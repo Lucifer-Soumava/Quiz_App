@@ -35,15 +35,30 @@
 
       <p id="quizCode" class="hint"></p>
 
-      <!-- Admin timer controls -->
-      <div id="adminControls" style="display:none; margin-top:10px;">
-        <div class="row" style="align-items:center; gap:10px;">
-          <div id="adminTimerDisplay" class="code">Time left: --:--</div>
-          <button id="startTimerBtn" class="btn secondary">Start Timer</button>
-          <button id="plus20Btn" class="btn">+20s</button>
-          <button id="minus20Btn" class="btn">-20s</button>
-        </div>
-        <div class="hint" style="margin-top:8px;">Use start to show questions to participants. Adjust modifies remaining time.</div>
+      <!-- Admin timer controls (styled) -->
+      <div id="adminControls" class="admin-controls" style="display:none;">
+        <div id="adminTimerDisplay" class="code">Time left: --:--</div>
+
+        <button id="startTimerBtn" class="timer-btn start" type="button" title="Start quiz timer">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none"><path d="M5 3v18l15-9L5 3z" fill="currentColor"/></svg>
+          Start
+        </button>
+
+        <button id="plus20Btn" class="timer-btn plus" type="button" title="Add 20 seconds">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          +20s
+        </button>
+
+        <button id="minus20Btn" class="timer-btn minus" type="button" title="Remove 20 seconds">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none"><path d="M5 12h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          −20s
+        </button>
+        <button id="resetTimerBtn" class="timer-btn reset" type="button" title="Reset timer and stop quiz">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none"><path d="M12 5v2a5 5 0 1 1-5 5H7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Reset
+        </button>
+
+        <div class="hint" style="margin-left:8px; margin-top:6px;">Use Start to show questions to participants. Adjust modifies remaining time.</div>
       </div>
 
       <div id="questionForm" style="display:none; margin-top:14px;">
