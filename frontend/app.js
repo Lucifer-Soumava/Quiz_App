@@ -11,6 +11,8 @@ let adminStatusInterval = null;
 let participantPollInterval = null;
 let timerInterval = null;
 let timeLeft = 0;
+let questionsRendered = false;
+
 
 // ====================
 // EVENT BINDING
@@ -211,12 +213,12 @@ async function joinQuiz() {
     return;
   }
 
-  // clear any previous answers map
+  // reset state for a fresh join
   window.userAnswers = {};
   questions = [];
+  questionsRendered = false;
 
   try {
-    // call status endpoint (participant view)
     const res = await fetch(`${API_BASE}/quizzes/${currentQuizId}/status`);
     if (!res.ok) throw new Error("Quiz not found");
     const data = await res.json();
@@ -230,10 +232,10 @@ async function joinQuiz() {
       return;
     }
 
-    // if started, load questions + start timer
-    questions = data.questions;
+    // If already started, load questions + start authoritative timer
+    questions = data.questions || [];
     renderQuestions();
-    startQuizTimer(data.time_left);
+    syncAndStartTimer(data.time_left);
   } catch (err) {
     console.error(err);
     alert("Could not load quiz. Check ID.");
@@ -242,10 +244,9 @@ async function joinQuiz() {
 
 // Poll until admin starts the quiz, then load questions and timer
 function startParticipantPollForStart(quizId) {
-  // Poll the status every 1.5s until started, then continue polling while running
   clearInterval(participantPollInterval);
 
-  async function poll() {
+  async function preStartPoll() {
     try {
       const res = await fetch(`${API_BASE}/quizzes/${quizId}/status`);
       if (!res.ok) return;
@@ -265,23 +266,27 @@ function startParticipantPollForStart(quizId) {
       questions = data.questions || [];
       currentQuizTitle = data.title || currentQuizTitle;
 
-      // render questions once
-      renderQuestions();
+      // render questions once (guarded by questionsRendered)
+      if (!questionsRendered) {
+        renderQuestions();
+      }
 
-      // sync timeLeft to server value and start local countdown
+      // sync timeLeft to server and start authoritative countdown
       syncAndStartTimer(data.time_left);
 
-      // ensure we keep polling to pick up adjustments / remaining time
-      // The function below will ensure polling continues during running.
+      // move to running-only poll that will NOT re-render questions
+      clearInterval(participantPollInterval);
+      startParticipantRunningPoll(quizId);
     } catch (err) {
       console.error("participant pre-start poll error:", err);
     }
   }
 
   // initial immediate poll, then interval
-  poll();
-  participantPollInterval = setInterval(poll, 1500);
+  preStartPoll();
+  participantPollInterval = setInterval(preStartPoll, 1500);
 }
+
 
 // ====================
 // QUESTION RENDER + SUBMIT
@@ -293,6 +298,9 @@ function renderQuestions() {
     container.innerHTML = '<div class="card"><p class="hint">No questions yet.</p></div>';
     return;
   }
+
+  // use existing answers if any
+  const prevAnswers = window.userAnswers || {};
 
   questions.forEach((q, idx) => {
     const card = document.createElement("div");
@@ -318,6 +326,11 @@ function renderQuestions() {
       label.innerText = opt;
       btn.appendChild(label);
 
+      // If user already had this question answered, reflect selection
+      if (prevAnswers[idx] !== undefined && parseInt(prevAnswers[idx]) === optIdx) {
+        btn.classList.add("selected");
+      }
+
       btn.addEventListener("click", () => {
         const siblings = opts.querySelectorAll(".option-btn");
         siblings.forEach(s => s.classList.remove("selected"));
@@ -335,6 +348,9 @@ function renderQuestions() {
 
   const submitBtn = document.getElementById("submitAnswersBtn");
   if (submitBtn) submitBtn.style.display = "block";
+
+  // mark that we've rendered questions (so polling doesn't re-render)
+  questionsRendered = true;
 }
 
 async function submitAnswers() {
@@ -591,3 +607,43 @@ window.addEventListener("beforeunload", () => {
   clearInterval(participantPollInterval);
   clearInterval(timerInterval);
 });
+
+function startParticipantRunningPoll(quizId) {
+  // ensure previous interval is cleared
+  clearInterval(participantPollInterval);
+
+  async function runningPoll() {
+    try {
+      const res = await fetch(`${API_BASE}/quizzes/${quizId}/status`);
+      if (!res.ok) return;
+      const data = await res.json();
+
+      // If the quiz somehow ends or server says not started, stop polling and show a message
+      if (!data.started) {
+        clearInterval(participantPollInterval);
+        participantPollInterval = null;
+        const el = document.getElementById("timerDisplay");
+        if (el) el.innerText = "Quiz ended.";
+        return;
+      }
+
+      // server's time_left is authoritative; resync if difference > 1 second
+      const serverLeft = parseInt(data.time_left || 0);
+      if (typeof timeLeft !== "number") timeLeft = serverLeft;
+      if (Math.abs(serverLeft - timeLeft) > 1) {
+        timeLeft = serverLeft;
+      }
+
+      // Optional: if server adds new questions mid-run (rare) you could handle it here
+      // but don't re-render as it will wipe selections. If you need dynamic question additions,
+      // implement a minimal DOM patcher instead of full re-rendering.
+
+      // If time runs out server-side, the syncAndStartTimer logic will auto-submit.
+    } catch (err) {
+      console.error("participant running poll error:", err);
+    }
+  }
+
+  runningPoll();
+  participantPollInterval = setInterval(runningPoll, 1500);
+}
